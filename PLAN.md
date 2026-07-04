@@ -243,33 +243,108 @@ Mientras Manuel y Allan integran:
 
 # Arquitectura Propuesta
 
-``` text
-project/
+La arquitectura del proyecto sigue una separación por responsabilidades, permitiendo que la lógica del juego, la inteligencia artificial y la interfaz gráfica se desarrollen de forma independiente.
+
+```text
+knight-energy/
 │
-├── game/
-│   ├── GameState
-│   ├── Board
-│   ├── Player
-│   ├── Knight
-│   ├── Tile
-│   └── Move
+├── assets/                    # Recursos del juego
+│   ├── sprites/
+│   ├── fonts/
+│   ├── sounds/
+│   └── icons/
+│
+├── core/                      # Componentes compartidos
+│   ├── constants.py
+│   ├── enums.py
+│   ├── exceptions.py
+│   └── utils.py
+│
+├── engine/                    # Infraestructura reutilizable de pygame-ce
+│   ├── game.py
+│   ├── scene.py
+│   ├── input.py
+│   ├── events.py
+│   ├── asset_loader.py
+│   └── timer.py
+│
+├── game/                      # Lógica del dominio (sin pygame)
+│   │
+│   ├── board/
+│   │   ├── board.py
+│   │   ├── tile.py
+│   │   ├── position.py
+│   │   └── generator.py
+│   │
+│   ├── entities/
+│   │   ├── player.py
+│   │   └── move.py
+│   │
+│   ├── mechanics/
+│   │   ├── movement.py
+│   │   ├── gameplay.py
+│   │   └── victory.py
+│   │
+│   ├── state/
+│   │   ├── game_state.py
+│   │   └── turn.py
+│   │
+│   └── controller.py
 │
 ├── ai/
-│   ├── Minimax
-│   ├── Heuristic
-│   └── TreeNode
+│   ├── minimax.py
+│   ├── heuristic.py
+│   └── node.py
 │
-├── ui/
-│   ├── MainWindow
-│   ├── BoardView
-│   ├── HUD
-│   └── Assets
+├── ui/                        # Presentación e interfaz
+│   ├── screens/
+│   ├── widgets/
+│   ├── renderer.py
+│   └── camera.py
 │
-├── controller/
-│   └── GameController
+├── tests/
 │
-└── main
+├── config.py
+└── main.py
 ```
+
+## Responsabilidades
+
+### `game/`
+Contiene toda la lógica del juego. Ningún módulo dentro de este paquete debe depender de `pygame-ce`. Esto permite reutilizar la lógica para pruebas, la IA o incluso otra interfaz diferente.
+
+### `engine/`
+Implementa la infraestructura reutilizable basada en `pygame-ce`, como el ciclo principal del juego, manejo de escenas, carga de recursos y procesamiento de eventos.
+
+### `ui/`
+Se encarga únicamente de la representación gráfica y la interacción con el usuario. Consume el estado del juego generado por `game/` sin modificar directamente la lógica.
+
+### `ai/`
+Implementa el algoritmo Minimax y la función heurística. Trabaja exclusivamente con `GameState`, permitiendo simular partidas sin depender de la interfaz gráfica.
+
+### `core/`
+Agrupa elementos compartidos entre los distintos módulos, como enumeraciones, constantes, excepciones y utilidades generales.
+
+## Flujo de Dependencias
+
+```text
+            UI
+             │
+             ▼
+      GameController
+             │
+             ▼
+        GameState
+             │
+      ┌──────┼──────┐
+      ▼      ▼      ▼
+   Board   Player  Mechanics
+             ▲
+             │
+            AI
+```
+
+La dependencia siempre apunta hacia el núcleo del dominio (`game/`). Esto garantiza un bajo acoplamiento entre módulos y facilita el desarrollo paralelo de la lógica del juego, la inteligencia artificial y la interfaz gráfica.
 
 ------------------------------------------------------------------------
 
