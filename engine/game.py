@@ -13,8 +13,12 @@ class Game:
     per-frame behavior to whichever Scene is currently active.
     """
 
-    def __init__(self, width: int, height: int, title: str, fps: int) -> None:
+    def __init__(
+        self, width: int, height: int, title: str, fps: int, icon: pygame.Surface | None = None
+    ) -> None:
         pygame.init()
+        if icon is not None:
+            pygame.display.set_icon(icon)
         pygame.display.set_caption(title)
         self.screen = pygame.display.set_mode((width, height))
         self.assets = AssetLoader()

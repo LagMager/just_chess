@@ -242,3 +242,14 @@ def _draw_knight_vector(
 
     eye_center = (head_center[0] + head_radius * 0.3, head_center[1] - head_radius * 0.05)
     _draw_aa_circle(surface, eye_center, max(2, size * 0.07), outline_color)
+
+
+def build_app_icon(size: int = 64) -> pygame.Surface:
+    """Builds the window/taskbar icon: a knight on a rounded dark tile."""
+    icon = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.rect(icon, (32, 35, 45), icon.get_rect(), border_radius=size // 5)
+    draw_knight(
+        icon, (size // 2, size // 2 + round(size * 0.03)), round(size * 0.34),
+        (230, 180, 40), (20, 20, 20),
+    )
+    return icon
