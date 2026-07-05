@@ -6,8 +6,9 @@ import config
 from engine.asset_loader import AssetLoader
 from game.board.board import Board
 from game.board.position import Position
+from game.entities.player import Player
 from ui.camera import Camera
-from ui.shapes import draw_bolt, draw_knight, draw_star
+from ui.shapes import draw_bar, draw_bolt, draw_knight, draw_star
 
 COLUMN_LABELS = "abcdefgh"
 
@@ -17,8 +18,10 @@ class BoardRenderer:
 
     def __init__(self, camera: Camera, assets: AssetLoader) -> None:
         self.camera = camera
+        self.piece_radius = camera.tile_size // 2 - 10
         self._tile_font = assets.get_font(config.FONT_SIZE_SMALL, bold=True)
         self._coord_font = assets.get_font(config.FONT_SIZE_SMALL - 4)
+        self._badge_font = assets.get_font(config.FONT_SIZE_SMALL - 4, bold=True)
 
     def draw_frame(self, surface: pygame.Surface) -> None:
         padding = config.BOARD_FRAME_PADDING
@@ -121,6 +124,32 @@ class BoardRenderer:
         player_pixel: tuple[float, float],
         ai_pixel: tuple[float, float],
     ) -> None:
-        radius = self.camera.tile_size // 2 - 10
+        radius = self.piece_radius
         draw_knight(surface, player_pixel, radius, config.COLOR_PLAYER, (20, 20, 20))
         draw_knight(surface, ai_pixel, radius, config.COLOR_AI, (220, 220, 220))
+
+    def draw_piece_status(
+        self, surface: pygame.Surface, pixel: tuple[float, float], entity: Player
+    ) -> None:
+        """
+        Draws a compact energy bar under the knight and a points badge
+        above it, so each player's status is readable at a glance right
+        where their piece is -- not just in the side HUD.
+        """
+        radius = self.piece_radius
+
+        bar_rect = pygame.Rect(0, 0, round(radius * 1.9), 6)
+        bar_rect.center = (round(pixel[0]), round(pixel[1] + radius + 11))
+        fraction = entity.energy / config.MAX_ENERGY_FOR_BAR
+        bar_color = (
+            config.ENERGY_BAR_LOW
+            if entity.energy <= config.ENERGY_BAR_LOW_THRESHOLD
+            else config.ENERGY_BAR_FILL
+        )
+        draw_bar(surface, bar_rect, fraction, config.ENERGY_BAR_BG, bar_color)
+
+        badge_center = (round(pixel[0] + radius * 0.7), round(pixel[1] - radius * 0.75))
+        pygame.draw.circle(surface, config.CARD_BG, badge_center, 13)
+        pygame.draw.circle(surface, config.COLOR_POINTS, badge_center, 13, width=2)
+        label = self._badge_font.render(str(entity.score), True, config.COLOR_TEXT)
+        surface.blit(label, label.get_rect(center=badge_center))
