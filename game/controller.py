@@ -19,10 +19,11 @@ class GameController:
     def __init__(self) -> None:
         self._game_state: GameState | None = None
 
-    def new_game(self) -> GameState:
+    def new_game(self, difficulty: int = 2) -> GameState:
         """
-        Starts a new game with a freshly generated board and
-        two players at random, safe (non-point, non-energy) positions.
+        Starts a new game with a freshly generated board and two
+        players at random, safe (non-point, non-energy) positions.
+        The machine always makes the first move.
         """
         board, spawn_positions = BoardGenerator.generate()
         player_spawn, ai_spawn = spawn_positions
@@ -34,7 +35,8 @@ class GameController:
             board=board,
             player=player,
             ai=ai,
-            turn=Turn.PLAYER,
+            turn=Turn.AI,
+            difficulty=difficulty,
         )
         return self._game_state
 
