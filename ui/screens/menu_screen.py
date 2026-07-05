@@ -84,7 +84,7 @@ class MenuScreen(Scene):
         return rect
 
     def draw(self, surface: pygame.Surface) -> None:
-        offset = (self._bg_time * 16, self._bg_time * 10)
+        offset = (self._bg_time * 36, self._bg_time * 24)
         draw_checker_background(
             surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT, offset
         )
