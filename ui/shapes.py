@@ -26,16 +26,59 @@ def draw_polygon(
 
 
 def draw_checker_background(
-    surface: pygame.Surface, tile_size: int, color_a: Color, color_b: Color
+    surface: pygame.Surface,
+    tile_size: int,
+    color_a: Color,
+    color_b: Color,
+    offset: tuple[float, float] = (0.0, 0.0),
 ) -> None:
-    """Fills `surface` with a low-contrast checkerboard, echoing the game
-    board so menu-like screens don't read as bare empty space."""
+    """
+    Fills `surface` with a low-contrast checkerboard, echoing the game
+    board so menu-like screens don't read as bare empty space.
+    `offset` (in pixels) rigidly translates the whole pattern -- pass
+    an increasing value to make the backdrop drift over time. The
+    period is 2 tiles, so offsets are wrapped to that to keep the
+    values bounded during long play sessions without changing
+    anything visually.
+    """
     width, height = surface.get_size()
-    for row in range(height // tile_size + 1):
-        for column in range(width // tile_size + 1):
+    period = tile_size * 2
+    offset_x = offset[0] % period
+    offset_y = offset[1] % period
+
+    for row in range(-2, height // tile_size + 3):
+        for column in range(-2, width // tile_size + 3):
             color = color_a if (row + column) % 2 == 0 else color_b
-            rect = pygame.Rect(column * tile_size, row * tile_size, tile_size, tile_size)
-            pygame.draw.rect(surface, color, rect)
+            x = column * tile_size - offset_x
+            y = row * tile_size - offset_y
+            pygame.draw.rect(surface, color, pygame.Rect(x, y, tile_size, tile_size))
+
+
+def draw_screen_vignette(surface: pygame.Surface, color: Color, intensity: float) -> None:
+    """
+    Draws a soft pulsing border glow around the edges of `surface`,
+    used to signal danger (e.g. critically low energy) without
+    covering the center of the screen. `intensity` is clamped to
+    [0, 1].
+    """
+    intensity = max(0.0, min(1.0, intensity))
+    if intensity <= 0:
+        return
+
+    width, height = surface.get_size()
+    overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+    layers = 8
+    max_thickness = 100
+    for i in range(layers):
+        t = i / layers
+        alpha = round(70 * intensity * (1 - t))
+        if alpha <= 0:
+            continue
+        inset = round(t * max_thickness)
+        rect = pygame.Rect(inset, inset, width - inset * 2, height - inset * 2)
+        thickness = max(2, max_thickness // layers + 2)
+        pygame.draw.rect(overlay, (*color, alpha), rect, width=thickness)
+    surface.blit(overlay, (0, 0))
 
 
 def draw_bar(
