@@ -23,6 +23,7 @@ class MenuScreen(Scene):
         self._difficulty_buttons: list[tuple[str, Button]] = []
         self._start_button: Button | None = None
         self._how_to_play_button: Button | None = None
+        self._bg_time = 0.0
         self._build_widgets()
 
     def _build_widgets(self) -> None:
@@ -72,6 +73,9 @@ class MenuScreen(Scene):
         self._start_button.handle_event(event)
         self._how_to_play_button.handle_event(event)
 
+    def update(self, dt: float) -> None:
+        self._bg_time += dt
+
     def _panel_rect(self) -> pygame.Rect:
         top = self._difficulty_buttons[0][1].rect.top - 60
         bottom = self._how_to_play_button.rect.bottom + 30
@@ -80,7 +84,10 @@ class MenuScreen(Scene):
         return rect
 
     def draw(self, surface: pygame.Surface) -> None:
-        draw_checker_background(surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT)
+        offset = (self._bg_time * 16, self._bg_time * 10)
+        draw_checker_background(
+            surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT, offset
+        )
         center_x = config.WINDOW_WIDTH // 2
 
         title_font = self.game.assets.get_font(config.FONT_SIZE_LARGE, bold=True)
