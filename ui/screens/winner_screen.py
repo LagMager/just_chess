@@ -7,7 +7,7 @@ import pygame
 import config
 from engine.scene import Scene
 from game.entities.player import Player
-from ui.shapes import draw_checker_background, draw_knight
+from ui.shapes import draw_checker_background, draw_knight, scrolling_offset
 from ui.widgets.button import Button
 
 
@@ -42,9 +42,8 @@ class WinnerScreen(Scene):
         self._time += dt
 
     def draw(self, surface: pygame.Surface) -> None:
-        offset = (self._time * 36, self._time * 24)
         draw_checker_background(
-            surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT, offset
+            surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT, scrolling_offset()
         )
         center_x = config.WINDOW_WIDTH // 2
 

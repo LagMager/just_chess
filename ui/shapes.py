@@ -54,6 +54,18 @@ def draw_checker_background(
             pygame.draw.rect(surface, color, pygame.Rect(x, y, tile_size, tile_size))
 
 
+def scrolling_offset(speed_x: float = 36.0, speed_y: float = 24.0) -> tuple[float, float]:
+    """
+    An (x, y) offset driven by pygame's global clock rather than a
+    per-screen elapsed-time counter, so a drifting backdrop keeps
+    moving continuously across scene changes -- instead of freezing
+    (no local timer) or jumping back to zero (a fresh timer) every
+    time a new screen instance is constructed.
+    """
+    t = pygame.time.get_ticks() / 1000.0
+    return (t * speed_x, t * speed_y)
+
+
 def draw_screen_vignette(surface: pygame.Surface, color: Color, intensity: float) -> None:
     """
     Draws a soft pulsing border glow around the edges of `surface`,
