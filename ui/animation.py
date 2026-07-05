@@ -54,7 +54,10 @@ class PieceAnimation:
 
 
 class FloatingText:
-    """A short-lived label that rises and fades, for point/energy pickups."""
+    """
+    A short-lived label that pops in, rises, and fades -- used for
+    point/energy pickups and the energy-skip penalty.
+    """
 
     def __init__(
         self, position: Position, text: str, color: Color, duration: float = 0.9
@@ -74,6 +77,38 @@ class FloatingText:
         t = min(1.0, self.elapsed / self.duration)
         center_x, center_y = camera.tile_center(self.position)
         rise = 34 * t
+        scale = 1.0 + 0.35 * max(0.0, 1.0 - t * 5)
+
         label = font.render(self.text, True, self.color)
+        if abs(scale - 1.0) > 1e-3:
+            size = (max(1, round(label.get_width() * scale)), max(1, round(label.get_height() * scale)))
+            label = pygame.transform.smoothscale(label, size)
         label.set_alpha(round(255 * (1 - t)))
         surface.blit(label, label.get_rect(center=(center_x, center_y - 10 - rise)))
+
+
+class PickupBurst:
+    """A brief expanding, fading ring marking a points/energy pickup."""
+
+    def __init__(self, position: Position, color: Color, duration: float = 0.45) -> None:
+        self.position = position
+        self.color = color
+        self.duration = duration
+        self.elapsed = 0.0
+
+    def update(self, dt: float) -> bool:
+        """Advances the effect; returns True once it has expired."""
+        self.elapsed += dt
+        return self.elapsed >= self.duration
+
+    def draw(self, surface: pygame.Surface, camera: Camera) -> None:
+        t = min(1.0, self.elapsed / self.duration)
+        radius = round(camera.tile_size * (0.2 + 0.55 * t))
+        alpha = round(255 * (1 - t))
+        if alpha <= 0:
+            return
+
+        ring = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(ring, (*self.color, alpha), (radius + 2, radius + 2), radius, width=4)
+        center = camera.tile_center(self.position)
+        surface.blit(ring, (center[0] - radius - 2, center[1] - radius - 2))
