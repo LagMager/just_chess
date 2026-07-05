@@ -4,7 +4,7 @@ import pygame
 
 import config
 from engine.scene import Scene
-from ui.shapes import draw_knight
+from ui.shapes import draw_checker_background, draw_knight
 from ui.widgets.button import Button
 
 DIFFICULTY_HINTS = {
@@ -43,7 +43,7 @@ class MenuScreen(Scene):
         y += 10
         start_rect = pygame.Rect(0, 0, button_width, button_height)
         start_rect.center = (center_x, y)
-        self._start_button = Button(start_rect, "Iniciar Partida", font)
+        self._start_button = Button(start_rect, "Iniciar Partida", font, primary=True)
         self._start_button.on_click.connect(self._start_game)
 
         y += button_height + 20
@@ -72,8 +72,15 @@ class MenuScreen(Scene):
         self._start_button.handle_event(event)
         self._how_to_play_button.handle_event(event)
 
+    def _panel_rect(self) -> pygame.Rect:
+        top = self._difficulty_buttons[0][1].rect.top - 60
+        bottom = self._how_to_play_button.rect.bottom + 30
+        rect = pygame.Rect(0, top, 520, bottom - top)
+        rect.centerx = config.WINDOW_WIDTH // 2
+        return rect
+
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(config.COLOR_BACKGROUND)
+        draw_checker_background(surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT)
         center_x = config.WINDOW_WIDTH // 2
 
         title_font = self.game.assets.get_font(config.FONT_SIZE_LARGE, bold=True)
@@ -90,9 +97,13 @@ class MenuScreen(Scene):
         )
         surface.blit(subtitle, subtitle.get_rect(center=(center_x, 140)))
 
+        panel_rect = self._panel_rect()
+        pygame.draw.rect(surface, config.CARD_BG, panel_rect, border_radius=16)
+        pygame.draw.rect(surface, config.CARD_BORDER, panel_rect, width=1, border_radius=16)
+
         heading_font = self.game.assets.get_font(config.FONT_SIZE_MEDIUM, bold=True)
         heading = heading_font.render("Selecciona la dificultad", True, config.COLOR_TEXT)
-        surface.blit(heading, heading.get_rect(center=(center_x, 195)))
+        surface.blit(heading, heading.get_rect(center=(center_x, panel_rect.top + 35)))
 
         hint_font = self.game.assets.get_font(config.FONT_SIZE_SMALL - 2)
         for name, button in self._difficulty_buttons:

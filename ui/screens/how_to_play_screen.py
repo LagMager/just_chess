@@ -4,7 +4,7 @@ import pygame
 
 import config
 from engine.scene import Scene
-from ui.shapes import draw_bolt, draw_knight, draw_star
+from ui.shapes import draw_bolt, draw_checker_background, draw_knight, draw_star
 from ui.text import draw_lines, wrap_text
 from ui.widgets.button import Button
 
@@ -43,7 +43,7 @@ class HowToPlayScreen(Scene):
         self._back_button.handle_event(event)
 
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(config.COLOR_BACKGROUND)
+        draw_checker_background(surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT)
         center_x = config.WINDOW_WIDTH // 2
 
         title_font = self.game.assets.get_font(config.FONT_SIZE_LARGE, bold=True)

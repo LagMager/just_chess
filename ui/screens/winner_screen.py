@@ -5,7 +5,7 @@ import pygame
 import config
 from engine.scene import Scene
 from game.entities.player import Player
-from ui.shapes import draw_knight
+from ui.shapes import draw_checker_background, draw_knight
 from ui.widgets.button import Button
 
 
@@ -36,7 +36,7 @@ class WinnerScreen(Scene):
         self._replay_button.handle_event(event)
 
     def draw(self, surface: pygame.Surface) -> None:
-        surface.fill(config.COLOR_BACKGROUND)
+        draw_checker_background(surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT)
         center_x = config.WINDOW_WIDTH // 2
 
         if self._winner is None:
