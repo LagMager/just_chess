@@ -57,10 +57,12 @@ class MenuScreen(Scene):
         self._selected_difficulty = name
 
     def _start_game(self) -> None:
+        from engine.transition import FadeTransition
         from ui.screens.game_screen import GameScreen
 
         depth = config.DIFFICULTIES[self._selected_difficulty]
-        self.game.change_scene(GameScreen(self.game, depth))
+        game_screen = GameScreen(self.game, depth)
+        self.game.change_scene(FadeTransition(self.game, self, game_screen))
 
     def _show_how_to_play(self) -> None:
         from ui.screens.how_to_play_screen import HowToPlayScreen
