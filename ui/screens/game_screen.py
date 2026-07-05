@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 import pygame
 
 import config
@@ -36,6 +38,11 @@ class GameScreen(Scene):
         self._effects: list[FloatingText] = []
         self._effect_font = game.assets.get_font(config.FONT_SIZE_MEDIUM, bold=True)
 
+        self._ai_thread: threading.Thread | None = None
+        self._ai_done = False
+        self._ai_result: Position | None = None
+        self._ai_generation = 0
+
         hud_area = pygame.Rect(
             config.BOARD_ORIGIN[0] + self.camera.board_width() + 30,
             config.BOARD_ORIGIN[1],
@@ -56,6 +63,9 @@ class GameScreen(Scene):
         self._selected = False
         self._animation = None
         self._effects = []
+        self._ai_thread = None
+        self._ai_done = False
+        self._ai_generation += 1  # invalidates any in-flight AI thread from the old game
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self._new_game_button.handle_event(event)
@@ -106,9 +116,31 @@ class GameScreen(Scene):
         self._effects = [effect for effect in self._effects if not effect.update(dt)]
 
     def _play_ai_turn(self) -> None:
-        move = select_best_move(self.state, self.state.difficulty)
-        destination = move if move is not None else self.state.ai.position
-        self._commit_move(self.state.ai, destination)
+        """
+        Runs minimax on a background thread so depth-6 searches (which
+        can take over a second) don't freeze the render loop. `_commit_move`
+        only runs on the main thread once the result comes back.
+        """
+        if self._ai_thread is not None:
+            if self._ai_done:
+                move = self._ai_result
+                self._ai_thread = None
+                self._ai_done = False
+                destination = move if move is not None else self.state.ai.position
+                self._commit_move(self.state.ai, destination)
+            return
+
+        generation = self._ai_generation
+        state, depth = self.state, self.state.difficulty
+
+        def worker() -> None:
+            move = select_best_move(state, depth)
+            if generation == self._ai_generation:
+                self._ai_result = move
+                self._ai_done = True
+
+        self._ai_thread = threading.Thread(target=worker, daemon=True)
+        self._ai_thread.start()
 
     def _commit_move(self, entity: Player, destination: Position) -> None:
         origin = entity.position
