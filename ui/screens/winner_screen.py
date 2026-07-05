@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pygame
 
 import config
@@ -17,6 +19,7 @@ class WinnerScreen(Scene):
         self._player = player
         self._ai = ai
         self._winner = winner
+        self._time = 0.0
 
         button_rect = pygame.Rect(0, 0, 220, 50)
         button_rect.center = (config.WINDOW_WIDTH // 2, 520)
@@ -35,8 +38,14 @@ class WinnerScreen(Scene):
     def handle_event(self, event: pygame.event.Event) -> None:
         self._replay_button.handle_event(event)
 
+    def update(self, dt: float) -> None:
+        self._time += dt
+
     def draw(self, surface: pygame.Surface) -> None:
-        draw_checker_background(surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT)
+        offset = (self._time * 36, self._time * 24)
+        draw_checker_background(
+            surface, 60, config.COLOR_BACKGROUND, config.COLOR_BACKGROUND_ALT, offset
+        )
         center_x = config.WINDOW_WIDTH // 2
 
         if self._winner is None:
@@ -66,8 +75,11 @@ class WinnerScreen(Scene):
         right_x = card_rect.centerx + 140
         icon_y = card_rect.y + 55
 
-        draw_knight(surface, (left_x, icon_y), 34, config.COLOR_PLAYER, (20, 20, 20))
-        draw_knight(surface, (right_x, icon_y), 34, config.COLOR_AI, (220, 220, 220))
+        # gentle out-of-phase bob so the winner screen doesn't feel static
+        left_bob = math.sin(self._time * 2.2) * 4
+        right_bob = math.sin(self._time * 2.2 + math.pi) * 4
+        draw_knight(surface, (left_x, icon_y + left_bob), 34, config.COLOR_PLAYER, (20, 20, 20))
+        draw_knight(surface, (right_x, icon_y + right_bob), 34, config.COLOR_AI, (220, 220, 220))
 
         name_y = icon_y + 55
         name_label = name_font.render("Tu", True, config.COLOR_TEXT)
