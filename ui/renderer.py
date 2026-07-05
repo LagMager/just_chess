@@ -83,11 +83,21 @@ class BoardRenderer:
                 border_radius=6,
             )
 
-    def draw_tiles(self, surface: pygame.Surface, board: Board) -> None:
+    def draw_tiles(
+        self, surface: pygame.Surface, board: Board, keep_visible: Position | None = None
+    ) -> None:
+        """
+        Draws every remaining point/energy tile. A tile already marked
+        consumed is still drawn if it's `keep_visible`, so a pickup
+        icon stays on screen until the knight's move animation
+        actually lands on it.
+        """
         for row in range(board.SIZE):
             for column in range(board.SIZE):
                 tile = board.get_tile(Position(row, column))
-                if tile.consumed or (not tile.points and not tile.energy):
+                if not tile.points and not tile.energy:
+                    continue
+                if tile.consumed and tile.position != keep_visible:
                     continue
 
                 center = self.camera.tile_center(tile.position)
@@ -108,15 +118,9 @@ class BoardRenderer:
     def draw_pieces(
         self,
         surface: pygame.Surface,
-        player_position: Position,
-        ai_position: Position,
+        player_pixel: tuple[float, float],
+        ai_pixel: tuple[float, float],
     ) -> None:
         radius = self.camera.tile_size // 2 - 10
-        draw_knight(
-            surface, self.camera.tile_center(player_position), radius,
-            config.COLOR_PLAYER, (20, 20, 20),
-        )
-        draw_knight(
-            surface, self.camera.tile_center(ai_position), radius,
-            config.COLOR_AI, (220, 220, 220),
-        )
+        draw_knight(surface, player_pixel, radius, config.COLOR_PLAYER, (20, 20, 20))
+        draw_knight(surface, ai_pixel, radius, config.COLOR_AI, (220, 220, 220))
