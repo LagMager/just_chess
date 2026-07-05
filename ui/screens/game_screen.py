@@ -215,9 +215,11 @@ class GameScreen(Scene):
         self.renderer.draw_tiles(surface, self.state.board, keep_visible)
 
         player_pixel, ai_pixel = self._piece_pixels()
-        self.renderer.draw_pieces(surface, player_pixel, ai_pixel)
-        self.renderer.draw_piece_status(surface, player_pixel, self.state.player)
-        self.renderer.draw_piece_status(surface, ai_pixel, self.state.ai)
+        (player_draw, player_radius), (ai_draw, ai_radius) = self.renderer.draw_pieces(
+            surface, player_pixel, ai_pixel
+        )
+        self.renderer.draw_piece_status(surface, player_draw, player_radius, self.state.player)
+        self.renderer.draw_piece_status(surface, ai_draw, ai_radius, self.state.ai)
         self.renderer.draw_coordinates(surface)
 
         for burst in self._bursts:

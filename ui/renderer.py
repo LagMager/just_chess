@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pygame
 
 import config
@@ -123,21 +125,38 @@ class BoardRenderer:
         surface: pygame.Surface,
         player_pixel: tuple[float, float],
         ai_pixel: tuple[float, float],
-    ) -> None:
+    ) -> tuple[tuple[tuple[float, float], float], tuple[tuple[float, float], float]]:
+        """
+        Draws both knights. Nothing in this game stops them from
+        sharing a tile (there's no capture/blocking rule), so if
+        they're on -- or animating through -- the same spot, both are
+        drawn smaller and pulled apart so neither fully hides the
+        other. Returns the (pixel, radius) each was actually drawn at,
+        so callers can line up other per-piece overlays consistently.
+        """
         radius = self.piece_radius
+        dx = ai_pixel[0] - player_pixel[0]
+        dy = ai_pixel[1] - player_pixel[1]
+        overlapping = math.hypot(dx, dy) < radius
+
+        if overlapping:
+            radius = round(self.piece_radius * 0.62)
+            shift = self.piece_radius * 0.5
+            player_pixel = (player_pixel[0] - shift, player_pixel[1] - shift)
+            ai_pixel = (ai_pixel[0] + shift, ai_pixel[1] + shift)
+
         draw_knight(surface, player_pixel, radius, config.COLOR_PLAYER, (20, 20, 20))
         draw_knight(surface, ai_pixel, radius, config.COLOR_AI, (220, 220, 220))
+        return (player_pixel, radius), (ai_pixel, radius)
 
     def draw_piece_status(
-        self, surface: pygame.Surface, pixel: tuple[float, float], entity: Player
+        self, surface: pygame.Surface, pixel: tuple[float, float], radius: float, entity: Player
     ) -> None:
         """
         Draws a compact energy bar under the knight and a points badge
         above it, so each player's status is readable at a glance right
         where their piece is -- not just in the side HUD.
         """
-        radius = self.piece_radius
-
         bar_rect = pygame.Rect(0, 0, round(radius * 1.9), 6)
         bar_rect.center = (round(pixel[0]), round(pixel[1] + radius + 11))
         fraction = entity.energy / config.MAX_ENERGY_FOR_BAR
@@ -148,8 +167,9 @@ class BoardRenderer:
         )
         draw_bar(surface, bar_rect, fraction, config.ENERGY_BAR_BG, bar_color)
 
+        badge_radius = max(9, round(radius * 0.43))
         badge_center = (round(pixel[0] + radius * 0.7), round(pixel[1] - radius * 0.75))
-        pygame.draw.circle(surface, config.CARD_BG, badge_center, 13)
-        pygame.draw.circle(surface, config.COLOR_POINTS, badge_center, 13, width=2)
+        pygame.draw.circle(surface, config.CARD_BG, badge_center, badge_radius)
+        pygame.draw.circle(surface, config.COLOR_POINTS, badge_center, badge_radius, width=2)
         label = self._badge_font.render(str(entity.score), True, config.COLOR_TEXT)
         surface.blit(label, label.get_rect(center=badge_center))
