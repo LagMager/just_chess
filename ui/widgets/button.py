@@ -10,10 +10,17 @@ from engine.input import is_left_click
 class Button:
     """A rectangular clickable label; emits `on_click` when pressed."""
 
-    def __init__(self, rect: pygame.Rect, text: str, font: pygame.font.Font) -> None:
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        text: str,
+        font: pygame.font.Font,
+        primary: bool = False,
+    ) -> None:
         self.rect = rect
         self.text = text
         self.font = font
+        self.primary = primary
         self.on_click = Signal()
         self._hovered = False
 
@@ -24,7 +31,12 @@ class Button:
             self.on_click.emit()
 
     def draw(self, surface: pygame.Surface) -> None:
-        color = config.COLOR_BUTTON_HOVER if self._hovered else config.COLOR_BUTTON
+        if self.primary:
+            color = config.COLOR_ACCENT_HOVER if self._hovered else config.COLOR_ACCENT
+            text_color = config.COLOR_ACCENT_TEXT
+        else:
+            color = config.COLOR_BUTTON_HOVER if self._hovered else config.COLOR_BUTTON
+            text_color = config.COLOR_BUTTON_TEXT
         pygame.draw.rect(surface, color, self.rect, border_radius=8)
-        label = self.font.render(self.text, True, config.COLOR_BUTTON_TEXT)
+        label = self.font.render(self.text, True, text_color)
         surface.blit(label, label.get_rect(center=self.rect.center))
