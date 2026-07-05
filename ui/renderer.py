@@ -7,15 +7,48 @@ from engine.asset_loader import AssetLoader
 from game.board.board import Board
 from game.board.position import Position
 from ui.camera import Camera
+from ui.shapes import draw_bolt, draw_knight, draw_star
+
+COLUMN_LABELS = "abcdefgh"
 
 
 class BoardRenderer:
-    """Draws the board grid, remaining tiles, and both knights."""
+    """Draws the board frame, grid, remaining tiles, and both knights."""
 
     def __init__(self, camera: Camera, assets: AssetLoader) -> None:
         self.camera = camera
         self._tile_font = assets.get_font(config.FONT_SIZE_SMALL, bold=True)
-        self._piece_font = assets.get_font(config.FONT_SIZE_MEDIUM, bold=True)
+        self._coord_font = assets.get_font(config.FONT_SIZE_SMALL - 4)
+
+    def draw_frame(self, surface: pygame.Surface) -> None:
+        padding = config.BOARD_FRAME_PADDING
+        frame_rect = pygame.Rect(
+            self.camera.origin[0] - padding,
+            self.camera.origin[1] - padding,
+            self.camera.board_width() + padding * 2,
+            self.camera.board_width() + padding * 2,
+        )
+        pygame.draw.rect(surface, config.BOARD_FRAME_COLOR, frame_rect, border_radius=6)
+
+    def draw_coordinates(self, surface: pygame.Surface) -> None:
+        origin_x, origin_y = self.camera.origin
+        board_width = self.camera.board_width()
+
+        for column in range(self.camera.board_size):
+            label = self._coord_font.render(
+                COLUMN_LABELS[column], True, config.COLOR_COORD_LABEL
+            )
+            x = origin_x + column * self.camera.tile_size + self.camera.tile_size // 2
+            y = origin_y + board_width + config.BOARD_FRAME_PADDING + 10
+            surface.blit(label, label.get_rect(center=(x, y)))
+
+        for row in range(self.camera.board_size):
+            label = self._coord_font.render(
+                str(self.camera.board_size - row), True, config.COLOR_COORD_LABEL
+            )
+            x = origin_x - config.BOARD_FRAME_PADDING - 12
+            y = origin_y + row * self.camera.tile_size + self.camera.tile_size // 2
+            surface.blit(label, label.get_rect(center=(x, y)))
 
     def draw_grid(self, surface: pygame.Surface) -> None:
         for row in range(self.camera.board_size):
@@ -42,11 +75,12 @@ class BoardRenderer:
                 width=4,
             )
         for position in valid_moves:
-            pygame.draw.circle(
+            pygame.draw.rect(
                 surface,
                 config.COLOR_TILE_VALID_MOVE,
-                self.camera.tile_center(position),
-                self.camera.tile_size // 6,
+                self.camera.tile_rect(position),
+                width=4,
+                border_radius=6,
             )
 
     def draw_tiles(self, surface: pygame.Surface, board: Board) -> None:
@@ -57,15 +91,19 @@ class BoardRenderer:
                     continue
 
                 center = self.camera.tile_center(tile.position)
-                radius = self.camera.tile_size // 3
-                if tile.points:
-                    color, value = config.COLOR_POINTS, tile.points
-                else:
-                    color, value = config.COLOR_ENERGY, tile.energy
+                icon_center = (center[0], center[1] - 8)
+                icon_size = self.camera.tile_size // 4
 
-                pygame.draw.circle(surface, color, center, radius)
-                label = self._tile_font.render(str(value), True, (20, 20, 20))
-                surface.blit(label, label.get_rect(center=center))
+                if tile.points:
+                    draw_star(surface, icon_center, icon_size, config.COLOR_POINTS)
+                    value = tile.points
+                else:
+                    draw_bolt(surface, icon_center, icon_size, config.COLOR_ENERGY)
+                    value = tile.energy
+
+                label = self._tile_font.render(str(value), True, (30, 30, 30))
+                label_pos = (center[0], center[1] + icon_size + 6)
+                surface.blit(label, label.get_rect(center=label_pos))
 
     def draw_pieces(
         self,
@@ -73,16 +111,12 @@ class BoardRenderer:
         player_position: Position,
         ai_position: Position,
     ) -> None:
-        self._draw_knight(surface, player_position, config.COLOR_PLAYER)
-        self._draw_knight(surface, ai_position, config.COLOR_AI)
-
-    def _draw_knight(
-        self, surface: pygame.Surface, position: Position, fill: tuple[int, int, int]
-    ) -> None:
-        center = self.camera.tile_center(position)
         radius = self.camera.tile_size // 2 - 10
-        outline = (20, 20, 20) if fill != (20, 20, 20) else (230, 230, 230)
-        pygame.draw.circle(surface, fill, center, radius)
-        pygame.draw.circle(surface, outline, center, radius, width=2)
-        label = self._piece_font.render("N", True, outline)
-        surface.blit(label, label.get_rect(center=center))
+        draw_knight(
+            surface, self.camera.tile_center(player_position), radius,
+            config.COLOR_PLAYER, (20, 20, 20),
+        )
+        draw_knight(
+            surface, self.camera.tile_center(ai_position), radius,
+            config.COLOR_AI, (220, 220, 220),
+        )

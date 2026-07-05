@@ -12,6 +12,7 @@ from game.rules.movement import get_valid_moves, is_valid_move
 from game.state.turn import Turn
 from ui.camera import Camera
 from ui.renderer import BoardRenderer
+from ui.text import draw_lines, wrap_text
 from ui.widgets.button import Button
 from ui.widgets.hud import Hud
 
@@ -30,16 +31,17 @@ class GameScreen(Scene):
         hud_area = pygame.Rect(
             config.BOARD_ORIGIN[0] + self.camera.board_width() + 30,
             config.BOARD_ORIGIN[1],
-            220,
-            300,
+            230,
+            0,
         )
         self.hud = Hud(hud_area, game.assets)
 
-        button_rect = pygame.Rect(hud_area.x, hud_area.bottom + 40, 200, 44)
+        button_rect = pygame.Rect(hud_area.x, self.hud.bottom() + 30, 200, 44)
         self._new_game_button = Button(
             button_rect, "Nuevo Juego", game.assets.get_font(config.FONT_SIZE_SMALL)
         )
         self._new_game_button.on_click.connect(self._restart)
+        self._hint_font = game.assets.get_font(config.FONT_SIZE_SMALL)
 
     def _restart(self) -> None:
         self.state = self.controller.new_game(self.depth)
@@ -81,8 +83,18 @@ class GameScreen(Scene):
             WinnerScreen(self.game, self.state.player, self.state.ai, self.state.winner)
         )
 
+    def _hint_text(self) -> str:
+        if self.state.game_over:
+            return ""
+        if self.state.turn == Turn.AI:
+            return "La maquina esta pensando..."
+        if self.state.player.energy < gameplay.MOVE_ENERGY_COST:
+            return "Sin energia: pierdes el turno (-3 puntos)."
+        return "Haz click en una casilla resaltada en verde para mover tu caballo."
+
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(config.COLOR_BACKGROUND)
+        self.renderer.draw_frame(surface)
         self.renderer.draw_grid(surface)
 
         valid_moves = []
@@ -94,5 +106,12 @@ class GameScreen(Scene):
         self.renderer.draw_pieces(
             surface, self.state.player.position, self.state.ai.position
         )
+        self.renderer.draw_coordinates(surface)
         self.hud.draw(surface, self.state.player, self.state.ai, self.state.turn)
         self._new_game_button.draw(surface)
+
+        hint = self._hint_text()
+        if hint:
+            lines = wrap_text(self._hint_font, hint, self.hud.area.width)
+            position = (self.hud.area.x, self._new_game_button.rect.bottom + 20)
+            draw_lines(surface, self._hint_font, lines, position, config.COLOR_HINT)
