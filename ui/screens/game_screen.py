@@ -6,10 +6,13 @@ import config
 from ai.minimax import select_best_move
 from engine.input import is_left_click
 from engine.scene import Scene
+from game.board.position import Position
 from game.controller import GameController
+from game.entities.player import Player
 from game.rules import gameplay
 from game.rules.movement import get_valid_moves, is_valid_move
 from game.state.turn import Turn
+from ui.animation import FloatingText, PieceAnimation
 from ui.camera import Camera
 from ui.renderer import BoardRenderer
 from ui.text import draw_lines, wrap_text
@@ -28,6 +31,11 @@ class GameScreen(Scene):
         self.controller = GameController()
         self.state = self.controller.new_game(depth)
 
+        self._selected = False
+        self._animation: PieceAnimation | None = None
+        self._effects: list[FloatingText] = []
+        self._effect_font = game.assets.get_font(config.FONT_SIZE_MEDIUM, bold=True)
+
         hud_area = pygame.Rect(
             config.BOARD_ORIGIN[0] + self.camera.board_width() + 30,
             config.BOARD_ORIGIN[1],
@@ -45,36 +53,82 @@ class GameScreen(Scene):
 
     def _restart(self) -> None:
         self.state = self.controller.new_game(self.depth)
+        self._selected = False
+        self._animation = None
+        self._effects = []
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self._new_game_button.handle_event(event)
 
-        if self.state.game_over or self.state.turn != Turn.PLAYER:
+        if self.state.game_over or self.state.turn != Turn.PLAYER or self._animation:
             return
         if not is_left_click(event):
             return
 
-        destination = self.camera.position_at(event.pos)
-        if destination is None:
+        clicked = self.camera.position_at(event.pos)
+        if clicked is None:
             return
-        if is_valid_move(self.state.board, self.state.player.position, destination):
-            self.controller.make_move(destination)
+
+        if clicked == self.state.player.position:
+            self._selected = not self._selected
+            return
+
+        if self._selected and is_valid_move(self.state.board, self.state.player.position, clicked):
+            self._selected = False
+            self._commit_move(self.state.player, clicked)
 
     def update(self, dt: float) -> None:
+        self._update_effects(dt)
+
+        if self._animation is not None:
+            if not self._animation.update(dt):
+                return
+            if self._animation.pickup:
+                kind, value = self._animation.pickup
+                color = config.COLOR_POINTS if kind == "points" else config.COLOR_ENERGY
+                self._effects.append(
+                    FloatingText(self._animation.destination, f"+{value}", color)
+                )
+            self._animation = None
+            return
+
         if self.state.game_over:
             self._go_to_winner_screen()
             return
 
         if self.state.turn == Turn.PLAYER:
             if self.state.player.energy < gameplay.MOVE_ENERGY_COST:
-                self.controller.make_move(self.state.player.position)
+                self._commit_move(self.state.player, self.state.player.position)
         elif self.state.turn == Turn.AI:
             self._play_ai_turn()
+
+    def _update_effects(self, dt: float) -> None:
+        self._effects = [effect for effect in self._effects if not effect.update(dt)]
 
     def _play_ai_turn(self) -> None:
         move = select_best_move(self.state, self.state.difficulty)
         destination = move if move is not None else self.state.ai.position
+        self._commit_move(self.state.ai, destination)
+
+    def _commit_move(self, entity: Player, destination: Position) -> None:
+        origin = entity.position
+        is_skip = entity.energy < gameplay.MOVE_ENERGY_COST or origin == destination
+
+        pickup = None
+        if not is_skip:
+            tile = self.state.board.get_tile(destination)
+            if not tile.consumed:
+                if tile.points:
+                    pickup = ("points", tile.points)
+                elif tile.energy:
+                    pickup = ("energy", tile.energy)
+
         self.controller.make_move(destination)
+
+        if is_skip:
+            self._effects.append(FloatingText(origin, "-3", config.COLOR_LOSE))
+        else:
+            self._animation = PieceAnimation(entity is self.state.ai, origin, destination, pickup)
 
     def _go_to_winner_screen(self) -> None:
         from ui.screens.winner_screen import WinnerScreen
@@ -90,23 +144,42 @@ class GameScreen(Scene):
             return "La maquina esta pensando..."
         if self.state.player.energy < gameplay.MOVE_ENERGY_COST:
             return "Sin energia: pierdes el turno (-3 puntos)."
-        return "Haz click en una casilla resaltada en verde para mover tu caballo."
+        if not self._selected:
+            return "Haz click en tu caballo para ver sus movimientos."
+        return "Haz click en una casilla resaltada en verde para moverte."
+
+    def _piece_pixels(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        player_pixel = self.camera.tile_center(self.state.player.position)
+        ai_pixel = self.camera.tile_center(self.state.ai.position)
+        if self._animation is not None:
+            pixel = self._animation.current_pixel(self.camera)
+            if self._animation.is_ai:
+                ai_pixel = pixel
+            else:
+                player_pixel = pixel
+        return player_pixel, ai_pixel
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(config.COLOR_BACKGROUND)
         self.renderer.draw_frame(surface)
         self.renderer.draw_grid(surface)
 
+        selected_position = self.state.player.position if self._selected else None
         valid_moves = []
-        if not self.state.game_over and self.state.turn == Turn.PLAYER:
+        if self._selected and not self.state.game_over and self.state.turn == Turn.PLAYER:
             valid_moves = get_valid_moves(self.state.board, self.state.player.position)
-        self.renderer.draw_highlights(surface, None, valid_moves)
+        self.renderer.draw_highlights(surface, selected_position, valid_moves)
 
-        self.renderer.draw_tiles(surface, self.state.board)
-        self.renderer.draw_pieces(
-            surface, self.state.player.position, self.state.ai.position
-        )
+        keep_visible = self._animation.destination if self._animation and self._animation.pickup else None
+        self.renderer.draw_tiles(surface, self.state.board, keep_visible)
+
+        player_pixel, ai_pixel = self._piece_pixels()
+        self.renderer.draw_pieces(surface, player_pixel, ai_pixel)
         self.renderer.draw_coordinates(surface)
+
+        for effect in self._effects:
+            effect.draw(surface, self.camera, self._effect_font)
+
         self.hud.draw(surface, self.state.player, self.state.ai, self.state.turn)
         self._new_game_button.draw(surface)
 
