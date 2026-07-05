@@ -65,14 +65,13 @@ class GameScreen(Scene):
         self._hint_font = game.assets.get_font(config.FONT_SIZE_SMALL)
 
     def _restart(self) -> None:
-        self.state = self.controller.new_game(self.depth)
-        self._selected = False
-        self._animation = None
-        self._effects = []
-        self._bursts = []
-        self._ai_thread = None
-        self._ai_done = False
-        self._ai_generation += 1  # invalidates any in-flight AI thread from the old game
+        from engine.transition import FadeTransition
+
+        # A fresh instance (rather than resetting self.state in place) so
+        # the restart gets the same fade treatment as every other scene
+        # change, instead of cutting straight to the new board.
+        new_screen = GameScreen(self.game, self.depth)
+        self.game.change_scene(FadeTransition(self.game, self, new_screen))
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self._new_game_button.handle_event(event)
