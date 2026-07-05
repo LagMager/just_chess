@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable
+
 import pygame
 
 from engine.asset_loader import AssetLoader
@@ -14,11 +16,19 @@ class Game:
     """
 
     def __init__(
-        self, width: int, height: int, title: str, fps: int, icon: pygame.Surface | None = None
+        self,
+        width: int,
+        height: int,
+        title: str,
+        fps: int,
+        icon_factory: Callable[[], pygame.Surface] | None = None,
     ) -> None:
         pygame.init()
-        if icon is not None:
-            pygame.display.set_icon(icon)
+        if icon_factory is not None:
+            # Built here, after pygame.init(), since icon art may depend
+            # on pygame.font -- building it at the call site would run
+            # before pygame is initialized.
+            pygame.display.set_icon(icon_factory())
         pygame.display.set_caption(title)
         self.screen = pygame.display.set_mode((width, height))
         self.assets = AssetLoader()
