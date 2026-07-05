@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import threading
 
 import pygame
@@ -14,12 +15,15 @@ from game.entities.player import Player
 from game.rules import gameplay
 from game.rules.movement import get_valid_moves, is_valid_move
 from game.state.turn import Turn
-from ui.animation import FloatingText, PieceAnimation
+from ui.animation import FloatingText, PickupBurst, PieceAnimation
 from ui.camera import Camera
 from ui.renderer import BoardRenderer
+from ui.shapes import draw_screen_vignette
 from ui.text import draw_lines, wrap_text
 from ui.widgets.button import Button
 from ui.widgets.hud import Hud
+
+LOW_ENERGY_THRESHOLD = 2
 
 
 class GameScreen(Scene):
@@ -36,7 +40,9 @@ class GameScreen(Scene):
         self._selected = False
         self._animation: PieceAnimation | None = None
         self._effects: list[FloatingText] = []
+        self._bursts: list[PickupBurst] = []
         self._effect_font = game.assets.get_font(config.FONT_SIZE_MEDIUM, bold=True)
+        self._time = 0.0
 
         self._ai_thread: threading.Thread | None = None
         self._ai_done = False
@@ -63,6 +69,7 @@ class GameScreen(Scene):
         self._selected = False
         self._animation = None
         self._effects = []
+        self._bursts = []
         self._ai_thread = None
         self._ai_done = False
         self._ai_generation += 1  # invalidates any in-flight AI thread from the old game
@@ -88,6 +95,7 @@ class GameScreen(Scene):
             self._commit_move(self.state.player, clicked)
 
     def update(self, dt: float) -> None:
+        self._time += dt
         self._update_effects(dt)
 
         if self._animation is not None:
@@ -96,9 +104,9 @@ class GameScreen(Scene):
             if self._animation.pickup:
                 kind, value = self._animation.pickup
                 color = config.COLOR_POINTS if kind == "points" else config.COLOR_ENERGY
-                self._effects.append(
-                    FloatingText(self._animation.destination, f"+{value}", color)
-                )
+                destination = self._animation.destination
+                self._effects.append(FloatingText(destination, f"+{value}", color))
+                self._bursts.append(PickupBurst(destination, color))
             self._animation = None
             return
 
@@ -114,6 +122,7 @@ class GameScreen(Scene):
 
     def _update_effects(self, dt: float) -> None:
         self._effects = [effect for effect in self._effects if not effect.update(dt)]
+        self._bursts = [burst for burst in self._bursts if not burst.update(dt)]
 
     def _play_ai_turn(self) -> None:
         """
@@ -163,11 +172,11 @@ class GameScreen(Scene):
             self._animation = PieceAnimation(entity is self.state.ai, origin, destination, pickup)
 
     def _go_to_winner_screen(self) -> None:
+        from engine.transition import FadeTransition
         from ui.screens.winner_screen import WinnerScreen
 
-        self.game.change_scene(
-            WinnerScreen(self.game, self.state.player, self.state.ai, self.state.winner)
-        )
+        winner_screen = WinnerScreen(self.game, self.state.player, self.state.ai, self.state.winner)
+        self.game.change_scene(FadeTransition(self.game, self, winner_screen))
 
     def _hint_text(self) -> str:
         if self.state.game_over:
@@ -207,8 +216,12 @@ class GameScreen(Scene):
 
         player_pixel, ai_pixel = self._piece_pixels()
         self.renderer.draw_pieces(surface, player_pixel, ai_pixel)
+        self.renderer.draw_piece_status(surface, player_pixel, self.state.player)
+        self.renderer.draw_piece_status(surface, ai_pixel, self.state.ai)
         self.renderer.draw_coordinates(surface)
 
+        for burst in self._bursts:
+            burst.draw(surface, self.camera)
         for effect in self._effects:
             effect.draw(surface, self.camera, self._effect_font)
 
@@ -220,3 +233,7 @@ class GameScreen(Scene):
             lines = wrap_text(self._hint_font, hint, self.hud.area.width)
             position = (self.hud.area.x, self._new_game_button.rect.bottom + 20)
             draw_lines(surface, self._hint_font, lines, position, config.COLOR_HINT)
+
+        if not self.state.game_over and self.state.player.energy <= LOW_ENERGY_THRESHOLD:
+            pulse = 0.5 + 0.5 * math.sin(self._time * 5)
+            draw_screen_vignette(surface, config.COLOR_LOSE, 0.35 + 0.35 * pulse)
